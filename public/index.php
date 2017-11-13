@@ -12,14 +12,19 @@ $client = new MongoDB\Client("mongodb://localhost:27017");
 //echo $line ."\n";
 $db = $client->selectDatabase('test');
 
-$sql1 = "select qty from test order by qty DESC";
+$sql1 = "select * from test order by field ascdesc";
 echo $sql1;
 $translator = new Translator();
 $translate = $translator->getTranslate($sql1);
-$result = $db->selectCollection($translate['document'])
-    ->find($translate['filter'], $translate['options'])
-    ->toArray();
-var_dump($result);
+if ($translate === false) {
+    echo 'Syntax error';
+} else {
+    $result = $db->selectCollection($translate['document'])
+        ->find($translate['filter'], $translate['options'])
+        ->toArray();
+    var_dump($result);
+}
+
 //goto a;
 
 

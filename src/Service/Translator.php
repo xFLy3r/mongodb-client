@@ -25,10 +25,10 @@ class Translator
         $string = trim(strtolower($string));
         $validator = new \Validator();
         $result = $validator->validate($string);
-        if (!is_array($result)) {
-            throw new Exception('Syntax error');
-        }
 
+        if ($result === false) {
+            return false;
+        }
         return $this->translate($result, $string);
     }
 

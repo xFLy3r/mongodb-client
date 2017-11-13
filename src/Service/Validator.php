@@ -21,18 +21,18 @@ class Validator
     public function validate(string $string)
     {
         if ($this->checkOperation($string) === false) {
-            return 'Syntax error';
+            return false;
         }
         if ($this->isValidSelect($string, []) === false || $this->isValidFrom($string, []) === false) {
-            return 'Syntax error';
+            return false;
         }
 
         $operatorsInQuery = [];
 
         foreach (self::AVAILABLE_OPERATORS as $operator) {
             if (substr_count($string, $operator) > 0 ) {
-                if (substr_count($string, $operator) > 1) {
-                    return 'Fuq. Duplicate';
+                if (substr_count($string, $operator) > 1) {;
+                    return false;
                 }
 
                 if ($operator !== self::SELECT  && $operator !== self::FROM) {
@@ -48,12 +48,12 @@ class Validator
         }
         ksort($operatorsInQuery);
         if (!$this->checkOrderOfOperators($operatorsInQuery)) {
-            return 'Syntax error. Check priority of operators';
+            return false;
         }
 
         foreach ($operatorsInQuery as $operator) {
             if ($this->callMethod($operator, $string, $operatorsInQuery) === false) {
-                return 'not today';
+                return false;
             };
         }
 

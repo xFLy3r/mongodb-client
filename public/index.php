@@ -12,11 +12,10 @@ $client = new MongoDB\Client("mongodb://localhost:27017");
 //echo $line ."\n";
 $db = $client->selectDatabase('test');
 
-$sql1 = "select item, qty from test where item='pencil'";
+$sql1 = "select qty from test order by qty DESC";
 echo $sql1;
 $translator = new Translator();
 $translate = $translator->getTranslate($sql1);
-var_dump($translate);
 $result = $db->selectCollection($translate['document'])
     ->find($translate['filter'], $translate['options'])
     ->toArray();

@@ -32,9 +32,31 @@ class Translator
         return $this->translate($result, $string);
     }
 
-    private function callMethod($method, $string, $result)
+    private function callMethod($operator, $string, $result)
     {
-        return call_user_func_array(array($this, $method), array($string, $result));
+        if ($operator === self::ORDER_BY) {
+            $method = 'getValueOfOrderBy';
+        } else {
+            $method = 'getValueOf'. ucfirst($operator);
+        }
+        $key = array_search($operator, $result);
+        $currentKey = key($result);
+        while ($currentKey !== null && $currentKey != $key) {
+            next($result);
+            $currentKey = key($result);
+        }
+
+        $nextKey = array_search(next($result), $result);
+        $startIndex = min($key + strlen($operator), $nextKey);
+
+        if ($nextKey === false) {
+            $startIndex = $key + strlen($operator);
+            $between = substr($string, $startIndex);
+        } else {
+            $length = abs($key + strlen($operator) - $nextKey);
+            $between = substr($string, $startIndex, $length);
+        }
+        return call_user_func_array(array($this, $method), array($between));
     }
 
     /**
@@ -44,23 +66,20 @@ class Translator
      * @param $result
      * @return array
      */
-    private function getValueOfSelect(string $string, $result): array
+    private function getValueOfSelect(string $string): array
     {
-        preg_match("/select(.*?)from/", $string, $matches);
-        if ($matches[1] == '*') {
+        $string = trim($string);
+        if ($string == '*') {
             return [];
         }
-        trim($string);
-        $string = preg_replace('/\s+/', '', $matches[1]);
+        $string = preg_replace('/\s+/', '', $string);
         $fields = explode(',', $string);
         $arr = [];
         foreach ($fields as $field) {
             $arr[$field] = 1;
 
         }
-        return [
-            'projection' => $arr
-        ];
+        return $arr;
     }
 
     /**
@@ -70,17 +89,9 @@ class Translator
      * @param $result
      * @return string
      */
-    private function getValueOfFrom($string, $result)
+    private function getValueOfFrom(string $string)
     {
-        $arrayWithDefaultKeys = array_values($result);
-        $key = array_search(self::FROM, $arrayWithDefaultKeys);
-        if (array_key_exists($key+1, $arrayWithDefaultKeys)) {
-            $next = $arrayWithDefaultKeys[$key+1];
-            preg_match("/from(.*?)$next/", $string, $matches);
-        } else {
-            preg_match("/from(.*?)$/", $string, $matches);
-        }
-        return trim($matches[1]);
+        return trim($string);
     }
 
     /**
@@ -90,23 +101,16 @@ class Translator
      * @param $result
      * @return array
      */
-    private function getValueOfWhere($string, $result): array
+    private function getValueOfWhere($string): array
     {
-        $arrayWithDefaultKeys = array_values($result);
-        $key = array_search(self::WHERE, $arrayWithDefaultKeys);
-        if (array_key_exists($key+1, $arrayWithDefaultKeys)) {
-            $next = $arrayWithDefaultKeys[$key+1];
-            preg_match("/where(.*?)$next/", $string, $matches);
-        } else {
-            preg_match("/where(.*?)$/", $string, $matches);
-        }
-        $array = preg_split( "/\s(and|or)\s/", $matches[1]);
+        $array = preg_split( "/\s(and|or)\s/", $string);
         preg_match("/\s(and|or)\s/", $string, $matches);
-        //var_dump($matches[1]);
-        if ($matches[1] === 'and') {
-            $matches[1] = '&&';
-        } else {
-            $matches[1] = '||';
+        if ($matches === null) {
+            if ($matches[1] === 'and') {
+                $matches[1] = '&&';
+            } else {
+                $matches[1] = '||';
+            }
         }
         $str = 'return ';
         foreach ($array as $condition) {
@@ -116,10 +120,9 @@ class Translator
             }
 
             $str .= "this.$newArray[0] $newArray[1] $newArray[2]";
-            if ($array[0] == $condition and count($array) !== 1) {
+            if ($array[0] == $condition and count($array) !== 1 and array_key_exists(1, $matches)) {
                 $str .= " $matches[1] ";
             }
-            //var_dump($newArray);
         }
         echo $str;
         $js = "function() {
@@ -128,6 +131,27 @@ class Translator
         return ['$where' => $js];
     }
 
+    private function getValueOfOrderBy($string)
+    {
+        $response = [];
+        $array = explode(',', $string);
+        foreach ($array as $element) {
+            $arr = preg_split("/(\sdesc|\sasc)$/", trim($element), -1,PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+            if (count($arr) === 2) {
+                if (trim($arr[1]) === 'desc') {
+                    $flag = -1;
+                } else {
+                    $flag = 1;
+                }
+            } else {
+                $flag = 1;
+            }
+            $response[$arr[0]] =  $flag;
+
+        }
+
+        return $response;
+    }
     /**
      * Call methods those translate operators which were found in sql
      *
@@ -137,14 +161,11 @@ class Translator
      */
     private function translate($result, $string)
     {
-
         $newArray = [];
         foreach ($result as $operator) {
-            $method = 'getValueOf'. ucfirst($operator);
-            $newArray[$operator] = $this->callMethod($method, $string, $result);
+            $newArray[$operator] = $this->callMethod($operator, $string, $result);
 
         }
-        var_dump($newArray);
         if (!array_key_exists(self::WHERE, $newArray)) {
             $newArray['where'] = [];
         }
@@ -152,8 +173,10 @@ class Translator
         return [
             'document' => $newArray['from'],
             'filter' => $newArray['where'],
-            'options' => $newArray['select'],
-
+            'options' => [
+                'projection' => $newArray['select'],
+                'sort' => $newArray['order by']
+             ]
         ];
     }
 }

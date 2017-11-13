@@ -37,6 +37,7 @@ class Validator
 
                 if ($operator !== self::SELECT  && $operator !== self::FROM) {
                     if (!preg_match("/\s$operator\s/", $string)) {
+                        return false;
                     }
                 }
 
@@ -45,7 +46,7 @@ class Validator
                 }
             }
         }
-
+        ksort($operatorsInQuery);
         if (!$this->checkOrderOfOperators($operatorsInQuery)) {
             return 'Syntax error. Check priority of operators';
         }
@@ -61,8 +62,30 @@ class Validator
 
     private function callMethod($operator, $string, $result)
     {
-        $method = 'isValid'. ucfirst($operator);
-        return call_user_func_array(array($this, $method), array($string, $result));
+        $key = array_search($operator, $result);
+        $currentKey = key($result);
+        while ($currentKey !== null && $currentKey != $key) {
+            next($result);
+            $currentKey = key($result);
+        }
+
+        $nextKey = array_search(next($result), $result);
+        $startIndex = min($key + strlen($operator), $nextKey);
+
+        if ($nextKey === false) {
+            $startIndex = $key + strlen($operator);
+            $between = substr($string, $startIndex);
+        } else {
+            $length = abs($key + strlen($operator) - $nextKey);
+            $between = substr($string, $startIndex, $length);
+        }
+
+        if ($operator === self::ORDER_BY) {
+            $method = 'isValidOrderBy';
+        } else {
+            $method = 'isValid'. ucfirst($operator);
+        }
+        return call_user_func_array(array($this, $method), array($string, $between));
     }
 
     /**
@@ -86,7 +109,7 @@ class Validator
      * @param $string
      * @return bool
      */
-    private function isValidSelect(string $string, $array): bool
+    private function isValidSelect(string $string, $between): bool
     {
         if (preg_match("/select(.*?)from/", $string, $matches)) {
             if (trim($matches[1]) === '*') {
@@ -143,18 +166,9 @@ class Validator
      * @param $array
      * @return bool
      */
-    private function isValidWhere(string $string, array $array): bool
+    private function isValidWhere(string $string, string $between): bool
     {
-        $arrayWithDefaultKeys = array_values($array);
-
-        $key = array_search(self::WHERE, $arrayWithDefaultKeys);
-        if (array_key_exists($key+1, $arrayWithDefaultKeys)) {
-            $next = $arrayWithDefaultKeys[$key+1];
-            preg_match("/where(.*?)$next/", $string, $matches);
-        } else {
-            preg_match("/where(.*?)$/", $string, $matches);
-        }
-        $array = preg_split( "/\s(and|or)\s/", $matches[1]);
+        $array = preg_split( "/\s(and|or)\s/", $between);
         if (!$this->isValidValueOfWhere($array)) {
             return false;
         }
@@ -198,6 +212,24 @@ class Validator
                 return false;
             }
         };
+        return true;
+    }
+
+    private function isValidOrderBy(string $string, string $between)
+    {
+        $array = explode(',', $between);
+        foreach ($array as $element) {
+            $arr = preg_split("/(\sdesc|\sasc)$/", trim($element), -1,PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+            if (count($arr) > 2 or count($arr) < 1 or preg_match("/\s/", trim($arr[0]))) {
+                return false;
+            }
+            if (count($arr) === 3) {
+                if (substr($arr[1], -1, 3) !== 'asc' or substr($arr[1], -1, 4) !== 'desc') {
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 }

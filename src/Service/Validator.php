@@ -80,6 +80,10 @@ class Validator
             $between = substr($string, $startIndex, $length);
         }
 
+        if (strlen(trim($between)) === 0) {
+            return false;
+        }
+
         if ($operator === self::ORDER_BY) {
             $method = 'isValidOrderBy';
         } else {
@@ -231,5 +235,28 @@ class Validator
         }
 
         return true;
+    }
+
+    private function isValidSkip(string $string, string $between): bool
+    {
+        if (ctype_digit(trim($between))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isValidLimit(string $string, string $between): bool
+    {
+        $between = trim($between);
+        if (ctype_digit($between)) {
+            return true;
+        }
+        preg_match("/^(\d+,\s\d+|\d+,\d+)$/", $between, $matches);
+        if ($matches[1]) {
+            return true;
+        }
+
+        return false;
     }
 }

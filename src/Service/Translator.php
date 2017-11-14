@@ -56,6 +56,7 @@ class Translator
             $length = abs($key + strlen($operator) - $nextKey);
             $between = substr($string, $startIndex, $length);
         }
+
         return call_user_func_array(array($this, $method), array($between));
     }
 
@@ -152,6 +153,16 @@ class Translator
 
         return $response;
     }
+
+    private function getValueOfSkip($string)
+    {
+        return (int) $string;
+    }
+
+    private function getValueOfLimit($string)
+    {
+        return (int) $string;
+    }
     /**
      * Call methods those translate operators which were found in sql
      *
@@ -175,7 +186,9 @@ class Translator
             'filter' => $newArray['where'],
             'options' => [
                 'projection' => $newArray['select'],
-                'sort' => $newArray['order by']
+                'sort' => $newArray['order by'],
+                'limit' => $newArray['limit'],
+                'skip' => $newArray['skip']
              ]
         ];
     }

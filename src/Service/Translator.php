@@ -20,9 +20,21 @@ class Translator
         self::LIMIT
     ];
 
-    public function getTranslate(string $string)
+    private $sql;
+
+    private $client;
+
+    private $db;
+
+    public function __construct(string $string, string $uri = "mongodb://localhost:27017")
     {
-        $string = trim(strtolower($string));
+        $this->sql = trim(strtolower($string));
+        $this->client = new MongoDB\Client($uri);
+    }
+
+    public function getTranslate()
+    {
+        $string = $this->sql;
         $validator = new \Validator();
         $result = $validator->validate($string);
 
@@ -106,8 +118,8 @@ class Translator
     {
         $array = preg_split( "/\s(and|or)\s/", $string);
         preg_match("/\s(and|or)\s/", $string, $matches);
-        if ($matches === null) {
-            if ($matches[1] === 'and') {
+        if ($matches !== null) {
+            if (trim($matches[1]) === 'and') {
                 $matches[1] = '&&';
             } else {
                 $matches[1] = '||';
@@ -125,7 +137,6 @@ class Translator
                 $str .= " $matches[1] ";
             }
         }
-        echo $str;
         $js = "function() {
                 $str;
             }";
@@ -168,28 +179,40 @@ class Translator
      *
      * @param $result
      * @param $string
-     * @return array
      */
     private function translate($result, $string)
     {
+        $db = $this->client->selectDatabase('test');
+
         $newArray = [];
+        $options = [];
         foreach ($result as $operator) {
             $newArray[$operator] = $this->callMethod($operator, $string, $result);
+            if ($operator === self::SELECT) {
+                $options['projection'] =  $newArray['select'];
+            }
+            if ($operator === self::ORDER_BY) {
+                $options['sort'] = $newArray['order by'];
+            }
 
+            if ($operator === self::LIMIT) {
+                $options['limit'] = $newArray['limit'];
+            }
+
+            if ($operator === self::SKIP) {
+                $options['skip'] = $newArray['skip'];
+            }
         }
         if (!array_key_exists(self::WHERE, $newArray)) {
             $newArray['where'] = [];
         }
 
-        return [
-            'document' => $newArray['from'],
-            'filter' => $newArray['where'],
-            'options' => [
-                'projection' => $newArray['select'],
-                'sort' => $newArray['order by'],
-                'limit' => $newArray['limit'],
-                'skip' => $newArray['skip']
-             ]
-        ];
+        $collection = $db->selectCollection($newArray['from']);
+        $result = $collection->find(
+            $newArray['where'],
+            $options
+        );
+
+        return $result;
     }
 }

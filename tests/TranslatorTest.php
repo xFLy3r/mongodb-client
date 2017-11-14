@@ -27,13 +27,13 @@ class TranslatorTest extends TestCase
         $string2 = "select * from test order by field desc";
         $string3 = "select * from test order by field ascdesc";
 
-        $result = $this->translator->getTranslate($string1);
-        $this->assertInternalType('array', $result);
+        $result = $this->translator->setQuery($string1)->getTranslate();
+        $this->assertInstanceOf(\MongoDB\Driver\Cursor::class, $result);
 
-        $result = $this->translator->getTranslate($string2);
-        $this->assertInternalType('array', $result);
+        $result = $this->translator->setQuery($string2)->getTranslate();
+        $this->assertInstanceOf(\MongoDB\Driver\Cursor::class, $result);
 
-        $result = $this->translator->getTranslate($string3);
+        $result = $this->translator->setQuery($string3)->getTranslate();
         $this->assertFalse($result);
     }
 }

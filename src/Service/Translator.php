@@ -26,7 +26,7 @@ class Translator
 
     private $db;
 
-    public function __construct(string $string, string $uri = "mongodb://localhost:27017")
+    public function __construct(?string $string = null, string $uri = "mongodb://localhost:27017")
     {
         $this->sql = trim(strtolower($string));
         $this->client = new MongoDB\Client($uri);
@@ -214,5 +214,12 @@ class Translator
         );
 
         return $result;
+    }
+
+    public function setQuery(string $sql)
+    {
+        $this->sql = trim(strtolower($sql));
+
+        return $this;
     }
 }

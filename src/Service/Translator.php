@@ -20,18 +20,33 @@ class Translator
         self::LIMIT
     ];
 
+    /**
+     * @var string
+     */
     private $sql;
 
+    /**
+     * @var \MongoDB\Client
+     */
     private $client;
 
+    /**
+     * @var \MongoDB\Database
+     */
     private $db;
 
-    public function __construct(?string $string = null, string $uri = "mongodb://localhost:27017")
+    /**
+     * Translator constructor.
+     * @param string $uri
+     */
+    public function __construct(string $uri = "mongodb://localhost:27017")
     {
-        $this->sql = trim(strtolower($string));
         $this->client = new MongoDB\Client($uri);
     }
 
+    /**
+     * @return array|bool|\MongoDB\Model\CollectionInfoIterator|\MongoDB\Model\DatabaseInfoIterator|string
+     */
     public function getTranslate()
     {
         $string = $this->sql;
@@ -41,7 +56,25 @@ class Translator
         if ($result === false) {
             return false;
         }
-        return $this->translate($result, $string);
+
+        switch ($result['operation']) {
+            case 'select':
+                return $this->translateSelect($result['operatorsInQuery'], $string);
+            case 'use':
+                $this->db = $this->client->selectDatabase($result['db']);
+                return "Database " . $result['db'] . " was selected \n";
+            case 'db':
+                return $this->db ? $this->db->getDatabaseName() : 'No selected db';
+            case 'show dbs':
+                return $this->client->listDatabases();
+            case 'show databases':
+                return $this->client->listDatabases();
+            case 'show collections':
+                return $this->db ? $this->db->listCollections() : 'Select db';
+            default:
+                return false;
+        }
+
     }
 
     private function callMethod($operator, $string, $result)
@@ -118,7 +151,7 @@ class Translator
     {
         $array = preg_split( "/\s(and|or)\s/", $string);
         preg_match("/\s(and|or)\s/", $string, $matches);
-        if ($matches !== null) {
+        if (count($matches) > 1) {
             if (trim($matches[1]) === 'and') {
                 $matches[1] = '&&';
             } else {
@@ -174,16 +207,20 @@ class Translator
     {
         return (int) $string;
     }
+
     /**
      * Call methods those translate operators which were found in sql
      *
      * @param $result
      * @param $string
      */
-    private function translate($result, $string)
+    private function translateSelect($result, $string)
     {
-        $db = $this->client->selectDatabase('test');
-
+        if (!$this->db) {
+            echo 'Select a database, please' . "\n";
+            return false;
+        }
+        $db = $this->client->selectDatabase($this->db);
         $newArray = [];
         $options = [];
         foreach ($result as $operator) {
@@ -213,7 +250,7 @@ class Translator
             $options
         );
 
-        return $result;
+        return $result->toArray();
     }
 
     public function setQuery(string $sql)

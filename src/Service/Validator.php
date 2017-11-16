@@ -18,15 +18,59 @@ class Validator
         self::LIMIT
     ];
 
+    private $db;
+
+    public function __construct(?string $db = null)
+    {
+        $this->db = $db;
+    }
+
     public function validate(string $string)
     {
-        if ($this->checkOperation($string) === false) {
-            return false;
-        }
-        if ($this->isValidSelect($string, []) === false || $this->isValidFrom($string, []) === false) {
+        $operation = $this->checkOperation($string);
+        if ($operation === false) {
             return false;
         }
 
+        switch ($operation) {
+            case self::SELECT:
+                return $this->validateSelect($string);
+            case 'use':
+                return $this->validateUse($string);
+            case 'db':
+                return [
+                    'operation' => 'db',
+                ];
+            case 'show dbs':
+                return [
+                    'operation' => 'show dbs',
+                ];
+            case 'show databases':
+                return [
+                    'operation' => 'show dbs',
+                ];
+            case 'show collections':
+                return [
+                    'operation' => 'show collections',
+                ];
+            default:
+                return false;
+        }
+    }
+
+    private function validateUse($string)
+    {
+        preg_match("/^use\s([a-z]+)$/", $string, $matches);
+        if (!$matches[1]) {
+            return false;
+        }
+        return [
+            'operation' => 'use',
+            'db' => $matches[1],
+        ];
+    }
+    private function validateSelect($string)
+    {
         $operatorsInQuery = [];
 
         foreach (self::AVAILABLE_OPERATORS as $operator) {
@@ -40,7 +84,6 @@ class Validator
                         return false;
                     }
                 }
-
                 if (!preg_match("/\`($operator)\`/", $string)) {
                     $operatorsInQuery[strpos($string, $operator)] = $operator;
                 }
@@ -51,15 +94,19 @@ class Validator
             return false;
         }
 
+        $arr = [];
         foreach ($operatorsInQuery as $operator) {
             if ($this->callMethod($operator, $string, $operatorsInQuery) === false) {
                 return false;
             };
+            $arr[$operator] = $this->callMethod($operator, $string, $operatorsInQuery);
         }
-
-        return $operatorsInQuery;
+        var_dump($arr);
+        return [
+            'operation' => self::SELECT,
+            'operatorsInQuery' => $operatorsInQuery
+        ];
     }
-
     private function callMethod($operator, $string, $result)
     {
         $key = array_search($operator, $result);
@@ -81,6 +128,7 @@ class Validator
         }
 
         if (strlen(trim($between)) === 0) {
+            echo "Check operator $operator \n";
             return false;
         }
 
@@ -89,7 +137,8 @@ class Validator
         } else {
             $method = 'isValid'. ucfirst($operator);
         }
-        return call_user_func_array(array($this, $method), array($string, $between));
+
+        return call_user_func_array(array($this, $method), array($between));
     }
 
     /**
@@ -98,10 +147,27 @@ class Validator
      * @param string $string
      * @return bool
      */
-    private function checkOperation(string $string): bool
+    private function checkOperation(string $string)
     {
+
         if (strpos($string, self::SELECT) === 0) {
-            return true;
+            return self::SELECT;
+        }
+
+        if (strpos($string, 'use') === 0) {
+            return 'use';
+        }
+
+        if (strpos($string, 'show collections') === 0) {
+            return 'show collections';
+        }
+
+        if (strpos($string, 'show dbs')  === 0 or strpos($string, 'show databases') === 0) {
+            return 'show dbs';
+        }
+
+        if (strpos($string, 'db') === 0) {
+            return 'db';
         }
 
         return false;
@@ -110,25 +176,22 @@ class Validator
     /**
      * Checks is valid operator 'select'
      *
-     * @param $string
+     * @param $between
      * @return bool
      */
-    private function isValidSelect(string $string, $between): bool
+    private function isValidSelect($between)
     {
-        if (preg_match("/select(.*?)from/", $string, $matches)) {
-            if (trim($matches[1]) === '*') {
-                return true;
+        if (trim($between) === '*') {
+            return $between;
+        }
+        $fields = explode(',', $between);
+        foreach ($fields as $field) {
+            if (!preg_match("/^[a-z0-9\s]*$/", $field)) {
+                return false;
             }
-            $fields = explode(',', $matches[1]);
-            foreach ($fields as $field) {
-                if (!preg_match("/^[a-z0-9\s]*$/", $field)) {
-                    return false;
-                }
-            }
-            return true;
         }
 
-        return false;
+        return $between;
     }
 
     /**
@@ -138,17 +201,11 @@ class Validator
      * @param $array
      * @return bool
      */
-    private function isValidFrom($string, $array)
+    private function isValidFrom($between)
     {
-        if ($pos = strpos($string, self::FROM)) {
-            if (
-                ((substr($string, $pos - 1, 1) === '*') ||
-                    (substr($string, $pos - 1, 1) === ' '))
-            &&
-                (substr($string, $pos + 4, 1) === ' ')
-            ) {
-                return true;
-            }
+        preg_match("/^\s[a-z]+/", $between, $matches);
+        if ($matches[0]) {
+            return trim($between);
         }
 
         return false;
@@ -166,18 +223,18 @@ class Validator
     }
 
     /**
-     * @param $string
+     * @param $between
      * @param $array
      * @return bool
      */
-    private function isValidWhere(string $string, string $between): bool
+    private function isValidWhere(string $between): bool
     {
         $array = preg_split( "/\s(and|or)\s/", $between);
         if (!$this->isValidValueOfWhere($array)) {
             return false;
         }
 
-        return true;
+        return $between;
     }
 
     /**
@@ -216,10 +273,11 @@ class Validator
                 return false;
             }
         };
+
         return true;
     }
 
-    private function isValidOrderBy(string $string, string $between)
+    private function isValidOrderBy(string $between)
     {
         $array = explode(',', $between);
         foreach ($array as $element) {
@@ -234,27 +292,27 @@ class Validator
             }
         }
 
-        return true;
+        return $between;
     }
 
-    private function isValidSkip(string $string, string $between): bool
+    private function isValidSkip(string $between): bool
     {
         if (ctype_digit(trim($between))) {
-            return true;
+            return $between;
         }
 
         return false;
     }
 
-    private function isValidLimit(string $string, string $between): bool
+    private function isValidLimit(string $between): bool
     {
         $between = trim($between);
         if (ctype_digit($between)) {
-            return true;
+            return $between;
         }
         preg_match("/^(\d+,\s\d+|\d+,\d+)$/", $between, $matches);
         if ($matches[1]) {
-            return true;
+            return $between;
         }
 
         return false;

@@ -39,7 +39,7 @@ class Translator
      * Translator constructor.
      * @param string $uri
      */
-    public function __construct(string $uri = "mongodb://some-mongo:27017")
+    public function __construct(string $uri = "mongodb://test-mongo:27017")
     {
         $this->client = new MongoDB\Client($uri);
     }

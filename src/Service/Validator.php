@@ -221,7 +221,10 @@ class Validator
         $fields = explode(',', $between);
 
         foreach ($fields as $field) {
-            if (!preg_match("/^[a-z0-9\s]*$/", $field)) {
+            $field = trim($field);
+            if (!preg_match(
+                "/^[a-z0-9]*$|^([a-z0-9]+.[a-z0-9]+)$|`([a-z0-9]+.[a-z0-9]+)`$|^`([a-z0-9]+.[*]+)`$|^([a-z0-9]+.[*]+)$/",
+                $field))  {
                 return false;
             }
         }

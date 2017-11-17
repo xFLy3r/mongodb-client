@@ -43,7 +43,7 @@ class TranslatorTest extends TestCase
         $result = $this->translator->setQuery($string)->getTranslate();
         $this->assertFalse($result);
 
-        $string = "select * from";
+        $string = "select * from  5";
         $result = $this->translator->setQuery($string)->getTranslate();
         $this->assertFalse($result);
 
@@ -70,6 +70,7 @@ class TranslatorTest extends TestCase
         $string = "select * from test where item='test'";
         $result = $this->translator->setQuery($string)->getTranslate();
         $this->assertInternalType('array', $result);
+
         $string = "select * from test where item=4";
         $result = $this->translator->setQuery($string)->getTranslate();
         $this->assertInternalType('array', $result);

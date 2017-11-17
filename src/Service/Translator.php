@@ -112,8 +112,12 @@ class Translator
         $fields = explode(',', $string);
         $arr = [];
         foreach ($fields as $field) {
+            if (preg_match('/`(.*?)`/', $field, $match)) {
+                $field = rtrim($match[1], '.*');
+            } else {
+                $field = rtrim($field, '.*');
+            }
             $arr[$field] = 1;
-
         }
         return $arr;
     }

@@ -51,58 +51,48 @@ class Translator
     {
         $string = $this->sql;
         $validator = new \Validator();
-        $result = $validator->validate($string);
 
-        if ($result === false) {
+        if (!$result = $validator->validate($string)) {
             return false;
         }
 
-        switch ($result['operation']) {
+        switch ($result['cmd']) {
             case 'select':
-                return $this->translateSelect($result['operatorsInQuery'], $string);
+                return $this->translateSelect($result['values']);
             case 'use':
                 $this->db = $this->client->selectDatabase($result['db']);
                 return "Database " . $result['db'] . " was selected \n";
             case 'db':
-                return $this->db ? $this->db->getDatabaseName() : 'No selected db';
+                return $this->db ? $this->db->getDatabaseName() : "No selected db \n";
             case 'show dbs':
                 return $this->client->listDatabases();
             case 'show databases':
                 return $this->client->listDatabases();
             case 'show collections':
-                return $this->db ? $this->db->listCollections() : 'Select db';
+                return $this->db ? $this->getCollections() : "Select db \n";
             default:
                 return false;
         }
-
     }
 
-    private function callMethod($operator, $string, $result)
+    private function getCollections()
+    {
+        $collections = [];
+        foreach ($this->db->listCollections() as $collection) {
+            $collections[] = $collection->getName();
+        }
+
+        return $collections;
+    }
+    private function callMethod($operator, $value)
     {
         if ($operator === self::ORDER_BY) {
             $method = 'getValueOfOrderBy';
         } else {
             $method = 'getValueOf'. ucfirst($operator);
         }
-        $key = array_search($operator, $result);
-        $currentKey = key($result);
-        while ($currentKey !== null && $currentKey != $key) {
-            next($result);
-            $currentKey = key($result);
-        }
 
-        $nextKey = array_search(next($result), $result);
-        $startIndex = min($key + strlen($operator), $nextKey);
-
-        if ($nextKey === false) {
-            $startIndex = $key + strlen($operator);
-            $between = substr($string, $startIndex);
-        } else {
-            $length = abs($key + strlen($operator) - $nextKey);
-            $between = substr($string, $startIndex, $length);
-        }
-
-        return call_user_func_array(array($this, $method), array($between));
+        return call_user_func_array(array($this, $method), array($value));
     }
 
     /**
@@ -211,42 +201,42 @@ class Translator
     /**
      * Call methods those translate operators which were found in sql
      *
-     * @param $result
-     * @param $string
+     * @param array $result
+     * @return array|bool
      */
-    private function translateSelect($result, $string)
+    private function translateSelect(array $result)
     {
         if (!$this->db) {
-            echo 'Select a database, please' . "\n";
+            echo "Select a database, please\n";
             return false;
         }
-        $db = $this->client->selectDatabase($this->db);
-        $newArray = [];
+
+        $values = [];
         $options = [];
-        foreach ($result as $operator) {
-            $newArray[$operator] = $this->callMethod($operator, $string, $result);
+        foreach ($result as $operator => $value) {
+            $values[$operator] = $this->callMethod($operator, $value);
             if ($operator === self::SELECT) {
-                $options['projection'] =  $newArray['select'];
+                $options['projection'] =  $values['select'];
             }
             if ($operator === self::ORDER_BY) {
-                $options['sort'] = $newArray['order by'];
+                $options['sort'] = $values['order by'];
             }
 
             if ($operator === self::LIMIT) {
-                $options['limit'] = $newArray['limit'];
+                $options['limit'] = $values['limit'];
             }
 
             if ($operator === self::SKIP) {
-                $options['skip'] = $newArray['skip'];
+                $options['skip'] = $values['skip'];
             }
         }
-        if (!array_key_exists(self::WHERE, $newArray)) {
-            $newArray['where'] = [];
+        if (!array_key_exists(self::WHERE, $values)) {
+            $values['where'] = [];
         }
 
-        $collection = $db->selectCollection($newArray['from']);
+        $collection = $this->db->selectCollection($values['from']);
         $result = $collection->find(
-            $newArray['where'],
+            $values['where'],
             $options
         );
 

@@ -23,17 +23,56 @@ class TranslatorTest extends TestCase
 
     public function testGetTranslate()
     {
-        $string1 = "select * from test order by field asc";
-        $string2 = "select * from test order by field desc";
-        $string3 = "select * from test order by field ascdesc";
+        $string = "use test";
+        /** Set test db */
+        $this->translator->setQuery($string)->getTranslate();
 
-        $result = $this->translator->setQuery($string1)->getTranslate();
-        $this->assertInstanceOf(\MongoDB\Driver\Cursor::class, $result);
+        $string = "select * from test order by field asc";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertInternalType('array', $result);
 
-        $result = $this->translator->setQuery($string2)->getTranslate();
-        $this->assertInstanceOf(\MongoDB\Driver\Cursor::class, $result);
+        $string = "select * from test order by field desc";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertInternalType('array', $result);
 
-        $result = $this->translator->setQuery($string3)->getTranslate();
+        $string = "select * from test order by field asc desc";
+        $result = $this->translator->setQuery($string)->getTranslate();
         $this->assertFalse($result);
+
+        $string = "select ** from test";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "select * from";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "select from test order by name where a=1";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "order by name select * from test";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "select * from select";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "select * from `select`SU;";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "select * from test where item=test";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertFalse($result);
+
+        $string = "select * from test where item='test'";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertInternalType('array', $result);
+        $string = "select * from test where item=4";
+        $result = $this->translator->setQuery($string)->getTranslate();
+        $this->assertInternalType('array', $result);
+
     }
 }

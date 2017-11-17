@@ -8,6 +8,12 @@ class Validator
     const ORDER_BY = 'order by';
     const SKIP = 'skip';
     const LIMIT = 'limit';
+    const USE = 'use';
+    const DB = 'db';
+    const SHOW_COLLECTIONS = 'show collections';
+    const SHOW_DBS = 'show dbs';
+    const SHOW_DATABASES = 'show databases';
+
 
     const AVAILABLE_OPERATORS = [
         self::SELECT,
@@ -18,127 +24,43 @@ class Validator
         self::LIMIT
     ];
 
-    private $db;
-
-    public function __construct(?string $db = null)
-    {
-        $this->db = $db;
-    }
-
+    /**
+     * Validate string. If string is valid returns array, if not - false
+     *
+     * @param string $string
+     * @return array|bool
+     */
     public function validate(string $string)
     {
-        $operation = $this->checkOperation($string);
-        if ($operation === false) {
+
+        if (!$cmd = $this->checkCommand($string)) {
             return false;
         }
 
-        switch ($operation) {
+        switch ($cmd) {
             case self::SELECT:
                 return $this->validateSelect($string);
-            case 'use':
+            case self::USE:
                 return $this->validateUse($string);
-            case 'db':
+            case self::DB:
                 return [
-                    'operation' => 'db',
+                    'cmd' => 'db',
                 ];
-            case 'show dbs':
+            case self::SHOW_DATABASES:
                 return [
-                    'operation' => 'show dbs',
+                    'cmd' => 'show dbs',
                 ];
-            case 'show databases':
+            case self::SHOW_DBS:
                 return [
-                    'operation' => 'show dbs',
+                    'cmd' => 'show dbs',
                 ];
-            case 'show collections':
+            case self::SHOW_COLLECTIONS:
                 return [
-                    'operation' => 'show collections',
+                    'cmd' => 'show collections',
                 ];
             default:
                 return false;
         }
-    }
-
-    private function validateUse($string)
-    {
-        preg_match("/^use\s([a-z]+)$/", $string, $matches);
-        if (!$matches[1]) {
-            return false;
-        }
-        return [
-            'operation' => 'use',
-            'db' => $matches[1],
-        ];
-    }
-    private function validateSelect($string)
-    {
-        $operatorsInQuery = [];
-
-        foreach (self::AVAILABLE_OPERATORS as $operator) {
-            if (substr_count($string, $operator) > 0 ) {
-                if (substr_count($string, $operator) > 1) {;
-                    return false;
-                }
-
-                if ($operator !== self::SELECT  && $operator !== self::FROM) {
-                    if (!preg_match("/\s$operator\s/", $string)) {
-                        return false;
-                    }
-                }
-                if (!preg_match("/\`($operator)\`/", $string)) {
-                    $operatorsInQuery[strpos($string, $operator)] = $operator;
-                }
-            }
-        }
-        ksort($operatorsInQuery);
-        if (!$this->checkOrderOfOperators($operatorsInQuery)) {
-            return false;
-        }
-
-        $arr = [];
-        foreach ($operatorsInQuery as $operator) {
-            $value = $this->callMethod($operator, $string, $operatorsInQuery);
-            if ($value === false) {
-                return false;
-            };
-            $arr[$operator] = $value;
-        }
-        return [
-            'operation' => self::SELECT,
-            'operatorsInQuery' => $operatorsInQuery
-        ];
-    }
-    private function callMethod($operator, $string, $result)
-    {
-        $key = array_search($operator, $result);
-        $currentKey = key($result);
-        while ($currentKey !== null && $currentKey != $key) {
-            next($result);
-            $currentKey = key($result);
-        }
-
-        $nextKey = array_search(next($result), $result);
-        $startIndex = min($key + strlen($operator), $nextKey);
-
-        if ($nextKey === false) {
-            $startIndex = $key + strlen($operator);
-            $between = substr($string, $startIndex);
-        } else {
-            $length = abs($key + strlen($operator) - $nextKey);
-            $between = substr($string, $startIndex, $length);
-        }
-
-        if (strlen(trim($between)) === 0) {
-            echo "Check operator $operator \n";
-            return false;
-        }
-
-        if ($operator === self::ORDER_BY) {
-            $method = 'isValidOrderBy';
-        } else {
-            $method = 'isValid'. ucfirst($operator);
-        }
-
-        return call_user_func_array(array($this, $method), array($between));
     }
 
     /**
@@ -147,7 +69,7 @@ class Validator
      * @param string $string
      * @return bool
      */
-    private function checkOperation(string $string)
+    private function checkCommand(string $string)
     {
 
         if (strpos($string, self::SELECT) === 0) {
@@ -174,17 +96,130 @@ class Validator
     }
 
     /**
+     * Validates cmd use
+     *
+     * @param $string
+     * @return array|bool
+     */
+    private function validateUse(string $string)
+    {
+        preg_match("/^use\s([a-z]+)$/", $string, $matches);
+        if (!$matches[1]) {
+            return false;
+        }
+        return [
+            'cmd' => 'use',
+            'db' => $matches[1],
+        ];
+    }
+
+    /**
+     * Validates cmd select. If is valid returns array like ['select' => valueOfSelect], etc.
+     *
+     * @param $string
+     * @return array|bool
+     */
+    private function validateSelect(string $string)
+    {
+        $operatorsInQuery = [];
+
+        /**
+         * Getting operators in select query (from, where, etc)
+         */
+        foreach (self::AVAILABLE_OPERATORS as $operator) {
+            if (substr_count($string, $operator) > 0 ) {
+                if (substr_count($string, $operator) > 1) {;
+                    return false;
+                }
+
+                if ($operator !== self::SELECT  && $operator !== self::FROM) {
+                    if (!preg_match("/\s$operator\s/", $string)) {
+                        return false;
+                    }
+                }
+
+                if (!preg_match("/\`($operator)\`/", $string)) {
+                    $operatorsInQuery[strpos($string, $operator)] = $operator;
+                }
+            }
+        }
+
+        ksort($operatorsInQuery);
+        if (!$this->checkOrderOfOperators($operatorsInQuery)) {
+            return false;
+        }
+
+        $arrWithValuesOfOperators = [];
+
+        /**
+         * Validating every operator in select query
+         */
+        foreach ($operatorsInQuery as $operator) {
+            $value = $this->callMethod($operator, $string, $operatorsInQuery);
+            if ($value === false) {
+                return false;
+            };
+            $arrWithValuesOfOperators[$operator] = $value;
+        }
+
+        return [
+            'cmd' => self::SELECT,
+            'values' => $arrWithValuesOfOperators
+        ];
+    }
+
+    /**
+     * @param string $operator
+     * @param string $string
+     * @param array $operatorsInQuery
+     * @return bool|mixed
+     */
+    private function callMethod(string $operator, string $string, array $operatorsInQuery)
+    {
+        $key = array_search($operator, $operatorsInQuery);
+        $currentKey = key($operatorsInQuery);
+        while ($currentKey !== null && $currentKey != $key) {
+            next($operatorsInQuery);
+            $currentKey = key($operatorsInQuery);
+        }
+
+        $nextKey = array_search(next($operatorsInQuery), $operatorsInQuery);
+        $startIndex = min($key + strlen($operator), $nextKey);
+
+        if ($nextKey === false) {
+            $startIndex = $key + strlen($operator);
+            $between = substr($string, $startIndex);
+        } else {
+            $length = abs($key + strlen($operator) - $nextKey);
+            $between = substr($string, $startIndex, $length);
+        }
+
+        if (strlen(trim($between)) === 0) {
+            return false;
+        }
+
+        if ($operator === self::ORDER_BY) {
+            $method = 'isValidOrderBy';
+        } else {
+            $method = 'isValid'. ucfirst($operator);
+        }
+
+        return call_user_func_array(array($this, $method), array($between));
+    }
+
+    /**
      * Checks is valid operator 'select'
      *
-     * @param $between
-     * @return bool
+     * @param string$between
+     * @return bool|string
      */
-    private function isValidSelect($between)
+    private function isValidSelect(string $between)
     {
         if (trim($between) === '*') {
             return $between;
         }
         $fields = explode(',', $between);
+
         foreach ($fields as $field) {
             if (!preg_match("/^[a-z0-9\s]*$/", $field)) {
                 return false;
@@ -197,21 +232,23 @@ class Validator
     /**
      * Checks is valid operator 'from'
      *
-     * @param $string
-     * @param $array
-     * @return bool
+     * @param string $between
+     * @return bool|string
      */
-    private function isValidFrom($between)
+    private function isValidFrom(string $between)
     {
         preg_match("/^\s[a-z]+/", $between, $matches);
-        if ($matches[0]) {
-            return trim($between);
+        // TODO: validation
+        if (preg_match("/\s([a-z]+)/", $between, $matches) or preg_match("/\s`([a-z`]+)`/", $between, $matches)) {
+            return trim($matches[0]);
         }
 
         return false;
     }
 
     /**
+     * Check order of operators in sql
+     *
      * @param $operators
      * @return bool
      */
@@ -223,11 +260,12 @@ class Validator
     }
 
     /**
+     * Checks is valid operator 'where'
+     *
      * @param $between
-     * @param $array
-     * @return bool
+     * @return bool|string
      */
-    private function isValidWhere(string $between): bool
+    private function isValidWhere(string $between)
     {
         $array = preg_split( "/\s(and|or)\s/", $between);
         if (!$this->isValidValueOfWhere($array)) {
@@ -277,6 +315,12 @@ class Validator
         return true;
     }
 
+    /**
+     * Checks is valid operator 'Order by'
+     *
+     * @param string $between
+     * @return bool|string
+     */
     private function isValidOrderBy(string $between)
     {
         $array = explode(',', $between);
@@ -295,7 +339,13 @@ class Validator
         return $between;
     }
 
-    private function isValidSkip(string $between): bool
+    /**
+     * Checks is valid operator skip
+     *
+     * @param string $between
+     * @return bool|string
+     */
+    private function isValidSkip(string $between)
     {
         if (ctype_digit(trim($between))) {
             return $between;
@@ -304,7 +354,13 @@ class Validator
         return false;
     }
 
-    private function isValidLimit(string $between): bool
+    /**
+     * Checks is valid operator limit
+     *
+     * @param string $between
+     * @return bool|string
+     */
+    private function isValidLimit(string $between)
     {
         $between = trim($between);
         if (ctype_digit($between)) {

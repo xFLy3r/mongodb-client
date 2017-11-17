@@ -96,12 +96,12 @@ class Validator
 
         $arr = [];
         foreach ($operatorsInQuery as $operator) {
-            if ($this->callMethod($operator, $string, $operatorsInQuery) === false) {
+            $value = $this->callMethod($operator, $string, $operatorsInQuery);
+            if ($value === false) {
                 return false;
             };
-            $arr[$operator] = $this->callMethod($operator, $string, $operatorsInQuery);
+            $arr[$operator] = $value;
         }
-        var_dump($arr);
         return [
             'operation' => self::SELECT,
             'operatorsInQuery' => $operatorsInQuery

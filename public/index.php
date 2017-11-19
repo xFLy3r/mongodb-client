@@ -1,24 +1,23 @@
 <?php
 
-#error_reporting(E_ALL);
-#ini_set('display_errors', '1');
-
 require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../app/setup.php';
 require_once __DIR__ . '/../src/Service/Translator.php';
 
+$translator = new Translator($client, $db);
 echo "Hello. Available commands: select, use, db, show dbs, show collections \n";
 
-$line = readline('Type script: ');
-$translator = new Translator();
-while ($line !== 'exit') {
-    $result = $translator->setQuery($line)->getTranslate();
+$query = readline('Type script: ');
+while ($query !== 'exit') {
+    $result = $translator->setQuery($query)->getTranslate();
+
     if ($result === false) {
-        echo "Syntax error \n";
+        echo "Error \n";
     } else {
         print_r($result);
     }
 
-    $line = readline('Type script: ');
+    $query = readline('Type script: ');
 }
 
 echo "Goodbye! \n";

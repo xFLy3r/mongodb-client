@@ -39,9 +39,12 @@ class Translator
      * Translator constructor.
      * @param string $uri
      */
-    public function __construct(string $uri = "mongodb://test-mongo:27017")
+    public function __construct(\MongoDB\Client $client, string $db = null)
     {
-        $this->client = new MongoDB\Client($uri);
+        $this->client = $client;
+        if ($db) {
+            $this->db = $client->selectDatabase($db);
+        }
     }
 
     /**
@@ -63,7 +66,7 @@ class Translator
                 $this->db = $this->client->selectDatabase($result['db']);
                 return "Database " . $result['db'] . " was selected \n";
             case 'db':
-                return $this->db ? $this->db->getDatabaseName() : "No selected db \n";
+                return $this->db ? $this->db->getDatabaseName() . "\n" : "No selected db \n";
             case 'show dbs':
                 return $this->client->listDatabases();
             case 'show databases':

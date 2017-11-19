@@ -36,12 +36,10 @@ if ($username && $password) {
         echo "Password can't be without username. Try again: \n";
         goto settings;
     }
-$uri .= "$host:$port";
-try {
-    $client = new MongoDB\Client($uri);
-    $client->listDatabases();
-}
-catch (\MongoDB\Driver\Exception\ConnectionTimeoutException $exception) {
-    echo $exception->getMessage() . "\n Try again\n";
-    goto settings;
-}
+$uri .= "$host:$port/$db";
+
+$client = new MongoDB\Client($uri);
+
+
+
+

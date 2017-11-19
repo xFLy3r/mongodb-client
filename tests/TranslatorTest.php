@@ -75,6 +75,5 @@ class TranslatorTest extends TestCase
         $string = "select * from test where item=4";
         $result = $this->translator->setQuery($string)->getTranslate();
         $this->assertInternalType('array', $result);
-
     }
 }

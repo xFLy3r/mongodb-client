@@ -1,25 +1,10 @@
 <?php
 
 require_once 'Validator.php';
+require_once 'OperatorInterface.php';
 
-class Translator
+class Translator implements OperatorInterface
 {
-    const SELECT = 'select';
-    const FROM = 'from';
-    const WHERE = 'where';
-    const ORDER_BY = 'order by';
-    const SKIP = 'skip';
-    const LIMIT = 'limit';
-
-    const AVAILABLE_OPERATORS = [
-        self::SELECT,
-        self::FROM,
-        self::WHERE,
-        self::ORDER_BY,
-        self::SKIP,
-        self::LIMIT
-    ];
-
     /**
      * @var string
      */
@@ -37,7 +22,8 @@ class Translator
 
     /**
      * Translator constructor.
-     * @param string $uri
+     * @param \MongoDB\Client $client
+     * @param string $db
      */
     public function __construct(\MongoDB\Client $client, string $db = null)
     {

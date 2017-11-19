@@ -2,5 +2,6 @@ language: php
 php:
   - '7.1'
 install:
-  composer install
-  vendor/bin/phpunit tests/
+  - 'composer install'
+  - 'vendor/bin/phpunit tests/'
+

@@ -13,7 +13,8 @@ class TranslatorTest extends TestCase
 
     protected function setUp()
     {
-        $this->translator = new Translator();
+        $client = new MongoDB\Client();
+        $this->translator = new Translator($client);
     }
 
     protected function tearDown()

@@ -6,7 +6,6 @@ services:
 
 before_install:
   - pecl install mongodb
-  #- echo "extension = mongodb.so" >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
   - sleep 15
 
 install:

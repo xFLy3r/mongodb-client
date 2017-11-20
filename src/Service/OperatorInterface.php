@@ -8,6 +8,12 @@ interface OperatorInterface {
     const SKIP = 'skip';
     const LIMIT = 'limit';
 
+    const USE = 'use';
+    const DB = 'db';
+    const SHOW_COLLECTIONS = 'show collections';
+    const SHOW_DBS = 'show dbs';
+    const SHOW_DATABASES = 'show databases';
+    
     const AVAILABLE_OPERATORS = [
         self::SELECT,
         self::FROM,
